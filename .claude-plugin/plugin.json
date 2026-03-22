@@ -1,25 +1,7 @@
 {
   "name": "supabase-all-star",
   "description": "Agentic workflow for full-stack Supabase development with per-branch schema isolation, multi-agent orchestration, and visual QA",
-  "version": "1.0.0",
-  "license": "MIT",
   "author": {
     "name": "Scott Fuoco"
-  },
-  "repository": "https://github.com/scottfuoco/supabase-all-star",
-  "homepage": "https://github.com/scottfuoco/supabase-all-star#readme",
-  "keywords": [
-    "supabase",
-    "database",
-    "schema-isolation",
-    "multi-agent",
-    "playwright",
-    "visual-qa",
-    "turborepo",
-    "typescript",
-    "ci-cd"
-  ],
-  "commands": ".claude/commands/",
-  "agents": ".claude/agents/",
-  "skills": ".claude/skills/"
+  }
 }
