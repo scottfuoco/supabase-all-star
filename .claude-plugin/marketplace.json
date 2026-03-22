@@ -1,11 +1,18 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "supabase-all-star",
+  "description": "Agentic workflow for full-stack Supabase development with per-branch schema isolation, multi-agent orchestration, and visual QA",
+  "owner": {
+    "name": "Scott Fuoco",
+    "email": "scott@scottfuoco.com"
+  },
   "plugins": [
     {
       "name": "supabase-all-star",
+      "description": "Multi-agent workflow for Supabase development with per-branch schema isolation, visual QA, and CI/CD",
+      "category": "development",
       "source": "./",
-      "description": "Agentic workflow for full-stack Supabase development with per-branch schema isolation, multi-agent orchestration, and visual QA",
-      "version": "1.0.0"
+      "homepage": "https://github.com/scottfuoco/supabase-all-star"
     }
   ]
 }
