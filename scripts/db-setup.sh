@@ -84,7 +84,8 @@ yaml_get() {
   local key="$1"
   local default="${2:-}"
   local val
-  val=$(grep -m1 "^\s*${key}:" "$CONFIG" 2>/dev/null | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" | sed 's/\s*#.*//' | xargs) || true
+  # Match key: value — strip only the 'key:' prefix, preserving colons in the value (e.g. URLs)
+  val=$(grep -m1 "[[:space:]]*${key}:" "$CONFIG" 2>/dev/null | sed "s/^[[:space:]]*${key}:[[:space:]]*//" | sed 's/[[:space:]]*#.*//' | sed 's/^"\(.*\)"$/\1/' | sed "s/^'\(.*\)'$/\1/" | xargs) || true
   if [[ -z "$val" || "$val" == '""' || "$val" == "''" ]]; then
     echo "$default"
   else
@@ -261,7 +262,7 @@ SQL
 
   # Generate TypeScript types
   if [[ "$AUTO_GEN_TYPES" == "true" ]]; then
-    gen_types "$schema"
+    gen_types "$schema" || true
   fi
 
   ok "Schema '$schema' ready"
@@ -290,7 +291,7 @@ run_migrations() {
   for f in $migration_files; do
     log "  -> $(basename "$f")"
     PGOPTIONS="--search_path=$schema,public" psql "$DB_URL" -f "$f" || err "Migration failed: $f"
-    ((count++))
+    count=$((count + 1))
   done
   ok "$count migration(s) applied"
 }
