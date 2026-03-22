@@ -1,0 +1,138 @@
+# claude-pack.yaml
+# =============================================================================
+# This is the ONLY file you need to edit when installing into a new project.
+# Everything else in .claude/ is project-agnostic and reusable.
+# =============================================================================
+
+project:
+  name: "my-app"                        # Human-readable project name
+  description: "My SaaS application"    # Brief description for agent context
+
+# -----------------------------------------------------------------------------
+# Monorepo structure — paths relative to repo root
+# -----------------------------------------------------------------------------
+apps:
+  web:
+    path: "apps/web"
+    port: 3000                          # Dev server port for this worktree's instance
+    framework: "nextjs"
+    start_command: "pnpm dev"
+  cli:
+    path: "apps/cli"                    # Path to CLI package (if exists)
+    test_command: "pnpm cli:test"       # Command to validate CLI functionality
+
+packages:
+  types:
+    path: "packages/types"
+    types_output: "packages/types/src/database.types.ts"  # Where supabase gen types writes to
+
+# -----------------------------------------------------------------------------
+# Supabase configuration
+# -----------------------------------------------------------------------------
+# These values come from `supabase status` output when running locally.
+# Run `supabase start` then `supabase status` to see your local values.
+#
+# To auto-populate these values, run:
+#   ./install.sh            (during initial setup)
+#   /init                   (to validate and diagnose at any time)
+# -----------------------------------------------------------------------------
+supabase:
+  # --- Connection settings ---
+  # The database connection URL. For local Supabase this is typically:
+  #   postgresql://postgres:postgres@127.0.0.1:54322/postgres
+  # For remote/hosted Supabase, use the connection string from your dashboard.
+  db_url: "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+
+  # The Supabase API URL (Studio/REST). Local default: http://127.0.0.1:54321
+  api_url: "http://127.0.0.1:54321"
+
+  # The Supabase Studio URL. Local default: http://127.0.0.1:54323
+  studio_url: "http://127.0.0.1:54323"
+
+  # --- Authentication keys ---
+  # These are printed by `supabase status`. For local dev, the default keys
+  # are long JWTs that are the same across all local instances.
+  anon_key: ""                          # From `supabase status` → anon key
+  service_role_key: ""                  # From `supabase status` → service_role key
+
+  # --- Port configuration ---
+  # The port Supabase is listening on (used for health checks).
+  # This is the API port (default 54321), NOT the DB port (default 54322).
+  # The DB port is derived from db_url automatically.
+  api_port: 54321
+
+  # --- Schema isolation settings ---
+  # Each feature branch gets its own Postgres schema for full isolation.
+  # Schema name format: {schema_prefix}_{sanitized_branch_name}
+  # Example: feat_workspace_invitations
+  schema_prefix: "feat"
+
+  # Automatically create a per-branch schema when a feature branch is created?
+  # Set to false if you want to manage schemas manually.
+  auto_create_schema: true
+
+  # --- Seed and migrations ---
+  seed_file: "supabase/seed.sql"        # Project-specific seed data
+  migrations_dir: "supabase/migrations" # Where migration SQL files live
+
+  # After each schema creation, regenerate TypeScript types?
+  auto_gen_types: true
+
+# -----------------------------------------------------------------------------
+# Git settings
+# -----------------------------------------------------------------------------
+git:
+  base_branch: "origin/staging"         # All feature branches cut from here
+  worktree_base_dir: "../worktrees"     # Where git worktrees are created
+  pr_target: "staging"                  # PRs open against this branch
+  auto_push: true                       # Agent pushes branches automatically
+  auto_pr: true                         # Agent opens PRs automatically
+                                        # Set false to draft+notify instead
+
+# -----------------------------------------------------------------------------
+# Workflow configuration
+# -----------------------------------------------------------------------------
+workflow:
+  stages:
+    - research
+    - build
+    - cli-validate
+    - unit-test
+    - playwright        # Skipped automatically if no UI files were modified
+    - lint-typecheck
+    - pr
+
+  max_retries: 3                        # Times to loop back to build on failure
+
+  # Playwright visual QA — only runs if UI was touched
+  playwright:
+    enabled: true
+    visual_qa: true                     # Screenshot + Claude vision analysis
+    branding_doc: "config/branding.md"  # Your design context file
+    screenshots_dir: ".claude/task/screenshots"
+
+# -----------------------------------------------------------------------------
+# Testing
+# -----------------------------------------------------------------------------
+testing:
+  vitest:
+    config: "vitest.config.ts"
+    run_command: "pnpm test:run"
+    coverage_command: "pnpm test:coverage"
+  playwright:
+    config: "playwright.config.ts"
+    run_command: "pnpm test:e2e"
+    base_url: "http://localhost:3000"
+
+# -----------------------------------------------------------------------------
+# Notifications (optional)
+# -----------------------------------------------------------------------------
+notifications:
+  # Terminal notification when feature completes or fails
+  terminal: true
+
+  # Slack webhook (optional) — leave empty to disable
+  slack_webhook: ""
+
+  # Sound on completion (macOS)
+  sound: true
