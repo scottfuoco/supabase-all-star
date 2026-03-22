@@ -1,0 +1,11 @@
+{
+  "name": "supabase-all-star",
+  "plugins": [
+    {
+      "name": "supabase-all-star",
+      "source": "./",
+      "description": "Agentic workflow for full-stack Supabase development with per-branch schema isolation, multi-agent orchestration, and visual QA",
+      "version": "1.0.0"
+    }
+  ]
+}
