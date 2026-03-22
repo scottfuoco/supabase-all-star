@@ -413,6 +413,129 @@ list_schemas() {
   "
 }
 
+# Clean up schemas whose git branches no longer exist
+cleanup_schemas() {
+  check_supabase
+
+  local schemas
+  schemas=$(psql "$DB_URL" -t -A -c "
+    SELECT schema_name
+    FROM information_schema.schemata
+    WHERE schema_name LIKE '${SCHEMA_PREFIX}_%'
+    ORDER BY schema_name;
+  " 2>/dev/null) || err "Failed to list schemas"
+
+  if [[ -z "$schemas" ]]; then
+    ok "No feature schemas found — nothing to clean up"
+    return
+  fi
+
+  # Get list of current git branches
+  local branches
+  branches=$(git branch -a --format='%(refname:short)' 2>/dev/null || true)
+
+  local stale=()
+  local active=()
+
+  while IFS= read -r schema_name; do
+    [[ -z "$schema_name" ]] && continue
+    # Convert schema name back to possible branch patterns
+    local suffix="${schema_name#${SCHEMA_PREFIX}_}"
+    local found=false
+
+    # Check if any branch matches this schema
+    while IFS= read -r branch; do
+      [[ -z "$branch" ]] && continue
+      local branch_schema
+      branch_schema=$(branch_to_schema "$branch")
+      if [[ "$branch_schema" == "$schema_name" ]]; then
+        found=true
+        break
+      fi
+    done <<< "$branches"
+
+    if [[ "$found" == "true" ]]; then
+      active+=("$schema_name")
+    else
+      stale+=("$schema_name")
+    fi
+  done <<< "$schemas"
+
+  echo ""
+  if [[ ${#active[@]} -gt 0 ]]; then
+    log "Active schemas (branch exists):"
+    for s in "${active[@]}"; do
+      echo "  ${GREEN}✓${NC} $s"
+    done
+  fi
+
+  if [[ ${#stale[@]} -eq 0 ]]; then
+    echo ""
+    ok "No stale schemas found — all schemas have matching branches"
+    return
+  fi
+
+  echo ""
+  warn "Stale schemas (no matching branch found):"
+  for s in "${stale[@]}"; do
+    echo "  ${RED}✗${NC} $s"
+  done
+
+  echo ""
+  echo -n "Drop all ${#stale[@]} stale schema(s)? [y/N] "
+  read -r confirm
+  if [[ "$confirm" =~ ^[Yy]$ ]]; then
+    for s in "${stale[@]}"; do
+      psql "$DB_URL" -c "DROP SCHEMA IF EXISTS \"$s\" CASCADE;" &>/dev/null
+      ok "Dropped $s"
+    done
+    ok "Cleanup complete — ${#stale[@]} schema(s) removed"
+  else
+    log "Skipped — no schemas dropped"
+  fi
+}
+
+# Drop all feature schemas
+drop_all_schemas() {
+  check_supabase
+
+  local schemas
+  schemas=$(psql "$DB_URL" -t -A -c "
+    SELECT schema_name
+    FROM information_schema.schemata
+    WHERE schema_name LIKE '${SCHEMA_PREFIX}_%'
+    ORDER BY schema_name;
+  " 2>/dev/null) || err "Failed to list schemas"
+
+  if [[ -z "$schemas" ]]; then
+    ok "No feature schemas found — nothing to drop"
+    return
+  fi
+
+  local count=0
+  echo ""
+  warn "The following schemas will be dropped:"
+  while IFS= read -r schema_name; do
+    [[ -z "$schema_name" ]] && continue
+    echo "  ${RED}✗${NC} $schema_name"
+    count=$((count + 1))
+  done <<< "$schemas"
+
+  echo ""
+  echo -n "Drop all $count schema(s)? [y/N] "
+  read -r confirm
+  if [[ "$confirm" =~ ^[Yy]$ ]]; then
+    while IFS= read -r schema_name; do
+      [[ -z "$schema_name" ]] && continue
+      psql "$DB_URL" -c "DROP SCHEMA IF EXISTS \"$schema_name\" CASCADE;" &>/dev/null
+      ok "Dropped $schema_name"
+    done <<< "$schemas"
+    ok "All $count feature schema(s) dropped"
+  else
+    log "Skipped — no schemas dropped"
+  fi
+}
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -431,6 +554,9 @@ case "$CMD" in
     [[ -z "$BRANCH" ]] && err "Usage: $0 drop <branch-name>"
     drop_schema "$BRANCH"
     ;;
+  drop-all)
+    drop_all_schemas
+    ;;
   status)
     [[ -z "$BRANCH" ]] && err "Usage: $0 status <branch-name>"
     check_supabase
@@ -439,17 +565,22 @@ case "$CMD" in
   list)
     list_schemas
     ;;
+  cleanup)
+    cleanup_schemas
+    ;;
   check)
     check_full
     ;;
   *)
-    echo "Usage: $0 [--config <path>] {create|reset|drop|status|list|check} [branch-name]"
+    echo "Usage: $0 [--config <path>] {create|reset|drop|drop-all|status|list|cleanup|check} [branch-name]"
     echo ""
     echo "  create <branch>  Create schema, run migrations, seed"
     echo "  reset <branch>   Drop and recreate schema"
     echo "  drop <branch>    Drop schema (cleanup after PR merge)"
+    echo "  drop-all         Drop ALL feature schemas (with confirmation)"
     echo "  status <branch>  Print connection info"
     echo "  list             List all feature schemas"
+    echo "  cleanup          Find and drop schemas whose branches no longer exist"
     echo "  check            Validate Supabase connection and config"
     echo ""
     echo "Options:"
